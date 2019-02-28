@@ -13,8 +13,20 @@ pub struct GameState {
 
 impl Default for GameState {
     fn default() -> GameState {
+        use crate::types::Piece::*;
+
+        let board = [
+            [Empty, Black, Empty, Black, Empty, Black, Empty, Black],
+            [Black, Empty, Black, Empty, Black, Empty, Black, Empty],
+            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
+            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
+            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
+            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
+            [White, Empty, White, Empty, White, Empty, White, Empty],
+            [Empty, White, Empty, White, Empty, White, Empty, White],
+        ];
         GameState {
-            board: Board::default(),
+            board,
             current_player: Player::White,
             move_history: vec![],
             finished: false,
@@ -37,7 +49,7 @@ impl GameState {
         let from_x = mv.from.x as usize;
         let from_y = mv.from.y as usize;
 
-        let from_piece = &self.board.0[from_y][from_x];
+        let from_piece = &self.board[from_y][from_x];
 
         if *from_piece == Piece::Empty {
             return None;
@@ -46,7 +58,7 @@ impl GameState {
         let to_x = mv.to.x as usize;
         let to_y = mv.to.y as usize;
 
-        let to_piece = &self.board.0[to_y][to_x];
+        let to_piece = &self.board[to_y][to_x];
 
         if *from_piece == *to_piece {
             return None;
@@ -54,8 +66,8 @@ impl GameState {
 
         let mut new_game_state = self.clone();
 
-        (new_game_state.board.0)[from_x][from_y] = Piece::Empty;
-        (new_game_state.board.0)[to_x][to_y] = (*from_piece).clone();
+        (new_game_state.board)[from_x][from_y] = Piece::Empty;
+        (new_game_state.board)[to_x][to_y] = (*from_piece).clone();
 
         new_game_state.current_player = match self.current_player {
             Player::White => Player::Black,
@@ -73,7 +85,7 @@ impl GameState {
         let mut count_white = 0;
         let mut count_black = 0;
 
-        for row in &self.board.0 {
+        for row in &self.board {
             for piece in row {
                 match piece {
                     Piece::White => count_white += 1,

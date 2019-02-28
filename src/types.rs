@@ -55,21 +55,4 @@ impl Move {
 
 pub type History = Vec<Move>;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct Board(pub [[Piece; 8]; 8]);
-
-impl Default for Board {
-    fn default() -> Board {
-        use Piece::*;
-        Board([
-            [Empty, Black, Empty, Black, Empty, Black, Empty, Black],
-            [Black, Empty, Black, Empty, Black, Empty, Black, Empty],
-            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
-            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
-            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
-            [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
-            [White, Empty, White, Empty, White, Empty, White, Empty],
-            [Empty, White, Empty, White, Empty, White, Empty, White],
-        ])
-    }
-}
+pub type Board = [[Piece; 8]; 8];
