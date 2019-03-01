@@ -36,49 +36,44 @@ impl Default for GameState {
 }
 
 impl GameState {
-    // TODO: maybe switch to mutating same game state?
-    pub fn make_move(&self, mv: Move) -> Option<GameState> {
+    pub fn make_move(&mut self, mv: Move) {
         if mv.player != self.current_player {
-            return None;
+            return;
         }
 
         if !mv.valid() {
-            return None;
+            return;
         }
 
         let from_x = mv.from.x as usize;
         let from_y = mv.from.y as usize;
 
-        let from_piece = &self.board[from_y][from_x];
+        let from_piece = self.board[from_y][from_x].clone();
 
-        if *from_piece == Piece::Empty {
-            return None;
+        if from_piece == Piece::Empty {
+            return;
         }
 
         let to_x = mv.to.x as usize;
         let to_y = mv.to.y as usize;
 
-        let to_piece = &self.board[to_y][to_x];
+        let to_piece = self.board[to_y][to_x].clone();
 
-        if *from_piece == *to_piece {
-            return None;
+        if from_piece == to_piece {
+            return;
         }
 
-        let mut new_game_state = self.clone();
+        self.board[from_x][from_y] = Piece::Empty;
+        self.board[to_x][to_y] = from_piece;
 
-        (new_game_state.board)[from_x][from_y] = Piece::Empty;
-        (new_game_state.board)[to_x][to_y] = (*from_piece).clone();
-
-        new_game_state.current_player = match self.current_player {
+        self.current_player = match self.current_player {
             Player::White => Player::Black,
             Player::Black => Player::White,
         };
 
-        new_game_state.move_history.push(mv.clone());
+        self.move_history.push(mv.clone());
 
-        new_game_state.set_winner();
-
-        Some(new_game_state)
+        self.set_winner();
     }
 
     fn count_pieces(&self) -> (u8, u8) {

@@ -137,11 +137,7 @@ fn main() {
 
             let apply_message = |msg, game_state: &mut GameState| {
                 if let Ok(Some(mv)) = msg {
-                    let new_game_state = (*game_state).make_move(mv);
-
-                    if let Some(new_game_state) = new_game_state {
-                        *game_state = new_game_state;
-                    }
+                    (*game_state).make_move(mv);
                 }
             };
 
