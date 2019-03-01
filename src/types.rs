@@ -37,8 +37,8 @@ pub struct Move {
 
 impl Move {
     pub fn valid(&self) -> bool {
-        let from_valid = self.from.valid();
-        let to_valid = self.to.valid();
+        let valid_from = self.from.valid();
+        let valid_to = self.to.valid();
 
         let diff_x = i32::from(self.to.x) - i32::from(self.from.x);
         let diff_y = i32::from(self.to.y) - i32::from(self.from.y);
@@ -47,9 +47,9 @@ impl Move {
 
         // TODO: write simpler check for horse move
         valid_move &= (diff_x.abs()).min(diff_y.abs()) == 1;
-        valid_move &= (diff_x - diff_y).abs() == 1;
+        valid_move &= (diff_x.abs()).max(diff_y.abs()) == 2;
 
-        from_valid && to_valid && valid_move
+        valid_from && valid_to && valid_move
     }
 }
 

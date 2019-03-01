@@ -37,7 +37,7 @@ impl Default for GameState {
 
 impl GameState {
     // TODO: maybe switch to mutating same game state?
-    fn make_move(&self, mv: Move) -> Option<GameState> {
+    pub fn make_move(&self, mv: Move) -> Option<GameState> {
         if mv.player != self.current_player {
             return None;
         }
@@ -115,5 +115,13 @@ impl GameState {
                 None
             }
         };
+    }
+
+    pub fn get_winner(&self) -> Option<Player> {
+        self.winner.clone()
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.finished
     }
 }
