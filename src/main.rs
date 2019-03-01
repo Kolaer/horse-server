@@ -14,7 +14,6 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use types::*;
 
-
 /// Writes serializable data to TcpStream using \n as separator.
 fn write_json_data(stream: &mut TcpStream, data: &impl Serialize) {
     let mut buffer = serde_json::to_vec(data).expect("Serialization errror");
@@ -26,31 +25,31 @@ fn write_json_data(stream: &mut TcpStream, data: &impl Serialize) {
 }
 
 /// Handles data from player: parses moves from TcpStream and sending them to channel.
-fn handle_players_moves(
-    player: Player,
-    stream: Arc<RwLock<TcpStream>>,
-    updates_chan: Sender<Option<Move>>,
-) {
-    let stream = stream.clone();
+fn handle_players_moves(player: Player, stream: TcpStream, updates_chan: Sender<Option<Move>>) {
     let mut buffer = String::new();
+    let mut reader = BufReader::new(&stream);
 
     loop {
         buffer.clear();
-        {
-            let stream = stream.read().unwrap();
-            let mut reader = BufReader::new(&(*stream));
+        reader
+            .read_line(&mut buffer)
+            .expect("Error while getting data from client");
+        buffer.trim();
 
-            reader
-                .read_line(&mut buffer)
-                .expect("Error while getting data from client");
-            buffer.trim();
+        let msg: Result<Move, _> = serde_json::from_str(&buffer);
 
-            let mv: Move = serde_json::from_str(&buffer).expect("Deserialization error");
+        let msg = match msg {
+            Ok(msg) => {
+                if msg.player == player {
+                    Some(msg)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
 
-            let msg = if mv.player == player { Some(mv) } else { None };
-
-            updates_chan.send(msg).unwrap();
-        }
+        updates_chan.send(msg).unwrap();
     }
 }
 
@@ -94,17 +93,15 @@ fn main() {
                 write_json_data(&mut stream, &player);
                 write_json_data(&mut stream, &(*game_state));
 
-                let stream = Arc::new(RwLock::new(stream));
-
                 // Starting player handler in a new thread
                 if let Some(player) = player {
-                    let stream_clone = stream.clone();
+                    let stream_clone = stream.try_clone().expect("IO error: clonning TcpStream");
                     let chan = match player {
                         Player::White => white_moves_writer.clone(),
                         Player::Black => black_moves_writer.clone(),
                     };
                     thread::spawn(move || {
-                        handle_players_moves(Player::Black, stream_clone, chan);
+                        handle_players_moves(player, stream_clone, chan);
                     });
                 }
 
@@ -132,9 +129,6 @@ fn main() {
         }
 
         {
-            let mut game_state = game_state.write().unwrap();
-            let connections = connections.read().unwrap();
-
             let apply_message = |msg, game_state: &mut GameState| {
                 if let Ok(Some(mv)) = msg {
                     (*game_state).make_move(mv);
@@ -143,15 +137,23 @@ fn main() {
 
             // read move & maybe apply it
             select! {
-                recv(white_moves_reader) -> msg => apply_message(msg, &mut game_state),
-                recv(black_moves_reader) -> msg => apply_message(msg, &mut game_state),
+                recv(white_moves_reader) -> msg => {
+                    let mut game_state = game_state.write().unwrap();
+                    apply_message(msg, &mut game_state)
+                },
+                recv(black_moves_reader) -> msg => {
+                    let mut game_state = game_state.write().unwrap();
+                    apply_message(msg, &mut game_state)
+                },
             }
 
-            // send updates
-            for stream in (*connections).iter() {
-                let stream = stream.clone();
-                let mut stream = stream.write().unwrap();
-                write_json_data(&mut stream, &(*game_state));
+            {
+                let connections = connections.read().unwrap();
+                // send updates
+                for stream in (*connections).iter() {
+                    let mut stream = stream.try_clone().expect("IO error: cloning TcpStream ");
+                    write_json_data(&mut stream, &(*game_state));
+                }
             }
         }
     }
