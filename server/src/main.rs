@@ -10,6 +10,7 @@ use gamesate::GameState;
 use serde::Serialize;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::process;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use types::*;
@@ -19,13 +20,20 @@ fn write_json_data(stream: &mut TcpStream, data: &impl Serialize) {
     let mut buffer = serde_json::to_vec(data).expect("Serialization errror");
     buffer.push(b'\n');
 
-    stream
-        .write_all(&buffer)
-        .expect("Error while sending data to client");
+    let _ = stream.write_all(&buffer);
+}
+
+enum ChannelMsg<T> {
+    Close,
+    Msg(T),
 }
 
 /// Handles data from player: parses moves from TcpStream and sending them to channel.
-fn handle_players_moves(player: Player, stream: TcpStream, updates_chan: Sender<Option<Move>>) {
+fn handle_players_moves(
+    player: Player,
+    stream: TcpStream,
+    updates_chan: Sender<ChannelMsg<Option<Move>>>,
+) {
     let mut buffer = String::new();
     let mut reader = BufReader::new(&stream);
 
@@ -34,7 +42,12 @@ fn handle_players_moves(player: Player, stream: TcpStream, updates_chan: Sender<
         reader
             .read_line(&mut buffer)
             .expect("Error while getting data from client");
-        buffer.trim();
+        let buffer = buffer.trim();
+
+        if buffer.is_empty() {
+            updates_chan.send(ChannelMsg::Close).unwrap();
+            return;
+        }
 
         let msg: Result<Move, _> = serde_json::from_str(&buffer);
 
@@ -48,6 +61,8 @@ fn handle_players_moves(player: Player, stream: TcpStream, updates_chan: Sender<
             }
             _ => None,
         };
+
+        let msg = ChannelMsg::Msg(msg);
 
         updates_chan.send(msg).unwrap();
     }
@@ -129,9 +144,23 @@ fn main() {
         }
 
         {
-            let apply_message = |msg, game_state: &mut GameState| {
-                if let Ok(Some(mv)) = msg {
-                    (*game_state).make_move(mv);
+            let apply_message = |msg: Result<ChannelMsg<Option<Move>>, crossbeam::RecvError>,
+                                 game_state: &mut GameState| {
+                if msg.is_err() {
+                    return;
+                }
+                let msg = msg.unwrap();
+
+                match msg {
+                    ChannelMsg::Close => {
+                        eprintln!("Some player left the game");
+                        process::exit(1);
+                    }
+                    ChannelMsg::Msg(msg) => {
+                        if let Some(mv) = msg {
+                            (*game_state).make_move(mv);
+                        }
+                    }
                 }
             };
 
