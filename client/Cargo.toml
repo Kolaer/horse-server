@@ -1,5 +1,5 @@
 [package]
-name = "lab3"
+name = "horse-client"
 version = "0.1.0"
 authors = ["Paul <win10@list.ru>"]
 edition = "2018"

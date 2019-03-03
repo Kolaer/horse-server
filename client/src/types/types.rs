@@ -14,6 +14,22 @@ pub enum Player {
     Black,
 }
 
+impl PartialEq<Piece> for Player {
+    fn eq(&self, piece: &Piece) -> bool {
+        match (self, piece) {
+            (Player::White, Piece::White) => true,
+            (Player::Black, Piece::Black) => true,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Player> for Piece {
+    fn eq(&self, player: &Player) -> bool {
+        player == self
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub x: u8,

@@ -1,4 +1,9 @@
+use crate::controller::ControllerMessage;
+use crate::types::Move;
+use crate::types::Position;
 use cursive::direction::Direction;
+use cursive::event::{Event, EventResult, MouseEvent};
+use std::sync::mpsc;
 // use cursive::event::{Event, EventResult, MouseEvent};
 use cursive::theme::{BaseColor, Color, ColorStyle};
 use cursive::Printer;
@@ -8,16 +13,36 @@ use crate::types::GameState;
 use crate::types::Piece;
 use crate::types::Player;
 
-#[derive(Debug)]
 pub struct BoardView {
+    /// Current game state.
     pub gamestate: GameState,
-    pub available: Vec<Vec<Vec2>>,
+    /// All available positions to move onto.
+    pub available: Vec<Vec2>,
+    /// Chess position player focusing on.
     pub focused: Option<Vec2>,
+    /// Current player.
     pub player: Option<Player>,
+    /// Channel to send messages to contoroller.
+    controller_tx: mpsc::Sender<ControllerMessage>,
 }
 
-impl Default for BoardView {
-    fn default() -> Self {
+// impl Default for BoardView {
+//     fn default() -> Self {
+//         let gamestate = GameState::default();
+//         let available = Vec::new();
+//         let focused = None;
+//         let player = None;
+//         BoardView {
+//             gamestate,
+//             available,
+//             focused,
+//             player,
+//         }
+//     }
+// }
+
+impl BoardView {
+    pub fn new(controller_tx: mpsc::Sender<ControllerMessage>) -> Self {
         let gamestate = GameState::default();
         let available = Vec::new();
         let focused = None;
@@ -27,6 +52,28 @@ impl Default for BoardView {
             available,
             focused,
             player,
+            controller_tx,
+        }
+    }
+
+    /// Map coordinates from View to chessboard coordinate
+    fn get_cell(&mut self, position: Vec2, offset: Vec2) -> Option<Vec2> {
+        if let Some(pos) = position.checked_sub(offset) {
+            let pos = Vec2::from((pos.x / 4, pos.y / 4));
+            if pos.fits_in((7, 7)) {
+                Some(pos)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    /// Add all available positions to move from focused into
+    /// BoardView.available.
+    fn update_available(&mut self) {
+        if let Some(cell) = self.focused {
+            self.available.push(cell);
         }
     }
 }
@@ -41,22 +88,35 @@ impl cursive::view::View for BoardView {
                     for (j, piece) in row.iter().enumerate() {
                         let j_size = j * 4 + cj;
                         let is_black = (i + j) % 2 == 0;
-                        let back_color = match is_black {
+                        let mut back_color = match is_black {
                             true => Color::RgbLowRes(3, 3, 3),
                             false => Color::Dark(BaseColor::White),
                         };
-
-                        // let color = match piece {
-                        //     Piece::Black => Color::RgbLowRes(1, 3, 1),
-                        //     Piece::White => Color::RgbLowRes(1, 3, 1),
-                        //     Piece::Empty => Color::RgbLowRes(1, 3, 1),
-                        //     _ => back_color,
-                        // };
-
+                        let position = Vec2::from((j, i));
+                        let available = self.available.iter().any(|el| el == &position);
+                        if available {
+                            back_color = Color::RgbLowRes(1, 3, 1);
+                        }
+                        let print_text = (ci == 3 && cj == 3)
+                            || (ci == 2 && cj == 2)
+                            || (ci == 2 && cj == 3)
+                            || (ci == 3 && cj == 2);
                         let text = match piece {
                             Piece::Empty => " ",
-                            Piece::Black => "B",
-                            Piece::White => "W",
+                            Piece::Black => {
+                                if print_text {
+                                    "♞"
+                                } else {
+                                    " "
+                                }
+                            }
+                            Piece::White => {
+                                if print_text {
+                                    "♘"
+                                } else {
+                                    " "
+                                }
+                            }
                         };
 
                         printer.with_color(
@@ -107,41 +167,65 @@ impl cursive::view::View for BoardView {
         true
     }
 
-    // fn on_event(&mut self, event: Event) -> EventResult {
-    //     match event {
-    //         Event::Mouse {
-    //             offset,
-    //             position,
-    //             event: MouseEvent::Press(_btn),
-    //         } => {
-    //             if let Some(cell) = self.get_cell(position, offset) {
-    //                 if self.gamesate.board[cell.y][cell.x] == self.gamestate.player {
-    //                     self.focused = Some(cell);
-    //                     self.show_moves();
-    //                     return EventResult::Consumed(None);
-    //                 }
-    //             }
-    //         }
-    //         Event::Mouse {
-    //             offset,
-    //             position,
-    //             event: MouseEvent::Release(_),
-    //         } => {
-    //             if let Some(pos) = self.get_cell(position, offset) {
-    //                 if let Some(focused) = self.focused {
-    //                     let chess = match self.current_player {
-    //                         Player::White => Chess::White(false),
-    //                         Player::Black => Chess::Black(false),
-    //                     };
-    //                     self.focused = None;
-    //                     self.board[focused.y][focused.x] = Chess::Empty(false);
-    //                     self.board[pos.y][pos.x] = chess;
-    //                     self.hide_moves();
-    //                 }
-    //             }
-    //         }
-    //         _ => (),
-    //     }
-    //     EventResult::Ignored
-    // }
+    fn on_event(&mut self, event: Event) -> EventResult {
+        match event {
+            Event::Mouse {
+                offset,
+                position,
+                event: MouseEvent::Press(_btn),
+            } => {
+                if let Some(cell) = self.get_cell(position, offset) {
+                    let test_color = match (&self.gamestate.board[cell.y][cell.x], &self.player) {
+                        (Piece::Black, Some(Player::Black)) => true,
+                        (Piece::White, Some(Player::White)) => true,
+                        _ => false,
+                    };
+                    if test_color {
+                        self.focused = Some(cell);
+                        self.update_available();
+                        return EventResult::Consumed(None);
+                    }
+                }
+            }
+            Event::Mouse {
+                offset,
+                position,
+                event: MouseEvent::Release(_),
+            } => {
+                if let Some(pos) = self.get_cell(position, offset) {
+                    if let Some(player) = &self.player {
+                        if let Some(focused) = self.focused {
+                            let chess = match player.clone() {
+                                Player::White => Piece::White,
+                                Player::Black => Piece::Black,
+                            };
+                            let available = self.available.iter().any(|el| el == &focused);
+                            if available {
+                                self.focused = None;
+                                self.gamestate.board[focused.y][focused.x] = Piece::Empty;
+                                self.gamestate.board[pos.y][pos.x] = chess;
+                                self.available.clear();
+                                let chess_move = Move {
+                                    player: player.clone(),
+                                    from: Position {
+                                        x: focused.x as u8,
+                                        y: focused.y as u8,
+                                    },
+                                    to: Position {
+                                        x: pos.x as u8,
+                                        y: pos.y as u8,
+                                    },
+                                };
+                                self.controller_tx
+                                    .send(ControllerMessage::MovePerformed(chess_move))
+                                    .unwrap();
+                            }
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
+        EventResult::Ignored
+    }
 }
