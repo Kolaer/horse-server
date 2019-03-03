@@ -27,9 +27,9 @@ pub enum ControllerMessage {
 
 impl Controller {
     /// Create a new controller
-    pub fn new() -> Result<Controller, String> {
+    pub fn new(server_addr: &str) -> Result<Controller, String> {
         let (tx, rx) = mpsc::channel::<ControllerMessage>();
-        let stream = TcpStream::connect("127.0.0.1:31337");
+        let stream = TcpStream::connect(server_addr);
         if stream.is_err() {
             Err("Can't connect server.".to_string())
         } else {
