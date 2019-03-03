@@ -3,11 +3,10 @@ use crate::types::Move;
 use crate::types::Position;
 use cursive::direction::Direction;
 use cursive::event::{Event, EventResult, MouseEvent};
-use std::sync::mpsc;
-// use cursive::event::{Event, EventResult, MouseEvent};
 use cursive::theme::{BaseColor, Color, ColorStyle};
 use cursive::Printer;
 use cursive::Vec2;
+use std::sync::mpsc;
 
 use crate::types::GameState;
 use crate::types::Piece;
@@ -26,22 +25,9 @@ pub struct BoardView {
     controller_tx: mpsc::Sender<ControllerMessage>,
 }
 
-// impl Default for BoardView {
-//     fn default() -> Self {
-//         let gamestate = GameState::default();
-//         let available = Vec::new();
-//         let focused = None;
-//         let player = None;
-//         BoardView {
-//             gamestate,
-//             available,
-//             focused,
-//             player,
-//         }
-//     }
-// }
-
 impl BoardView {
+    /// Creates new boardView.
+    /// Provided Sender will be used to notidy about view updates.
     pub fn new(controller_tx: mpsc::Sender<ControllerMessage>) -> Self {
         let gamestate = GameState::default();
         let available = Vec::new();
@@ -81,7 +67,6 @@ impl BoardView {
             if y > 7 || y < 0 {
                 return;
             }
-            // return Some(Vec2::from((x as usize, y as usize)));
             available.push(Vec2::from((x as usize, y as usize)));
         }
         if let Some(cell) = self.focused {
@@ -93,7 +78,6 @@ impl BoardView {
             check_cell(cell.clone(), -1, 2, &mut self.available);
             check_cell(cell.clone(), 1, -2, &mut self.available);
             check_cell(cell.clone(), -1, -2, &mut self.available);
-            // self.available.push(cell);
         }
     }
 }
@@ -187,6 +171,9 @@ impl cursive::view::View for BoardView {
         true
     }
 
+    /// Fires if any event on ui was performed.
+    /// Check is that event was mose{Press|Release}
+    /// And do weird stuff. As we like.
     fn on_event(&mut self, event: Event) -> EventResult {
         match event {
             Event::Mouse {

@@ -11,11 +11,13 @@ pub struct Ui {
     pub ui_rx: mpsc::Receiver<UiMessage>,
     pub ui_tx: mpsc::Sender<UiMessage>,
     pub controller_tx: mpsc::Sender<ControllerMessage>,
+    pub player: Player,
 }
 
 pub enum UiMessage {
     UpdateProfile(Option<Player>),
     UpdateState(GameState),
+    ServerIsDown,
 }
 
 impl Ui {
@@ -28,10 +30,9 @@ impl Ui {
             ui_tx: ui_tx,
             ui_rx: ui_rx,
             controller_tx: controller_tx.clone(),
+            player: Player::White,
         };
 
-        // Create a view tree with a TextArea for input, and a
-        // TextView for output.
         ui.cursive.set_fps(30);
         ui.cursive.add_global_callback(Key::Esc, move |c| c.quit());
         ui.cursive.add_global_callback('h', move |c| show_help(c));
@@ -79,6 +80,7 @@ impl Ui {
                             Player::White => profile_type = "White",
                             Player::Black => profile_type = "Black",
                         }
+                        self.player = player.clone();
                     }
                     self.cursive.call_on_id("board", |view: &mut BoardView| {
                         view.player = profile.clone()
@@ -113,6 +115,43 @@ impl Ui {
                             view.add_child(" ", TextView::new(text));
                         }
                     });
+                    if new_state.finished {
+                        let mut message = "Opponent was disconnected.";
+                        let mut button_msg = "Ok.";
+                        if let Some(winner) = new_state.winner {
+                            if winner == self.player {
+                                message = "You won!";
+                                button_msg = "Yay!";
+                            } else {
+                                message = "You lose.";
+                                button_msg = "Ah.";
+                            }
+                        }
+                        self.cursive.add_layer(
+                            Dialog::new().content(
+                                LinearLayout::vertical()
+                                    .child(TextView::new(message))
+                                    .child(
+                                        LinearLayout::horizontal()
+                                            .child(Button::new(button_msg, |s| s.quit())),
+                                    ),
+                            ),
+                        );
+                    }
+                }
+                UiMessage::ServerIsDown => {
+                    self.cursive.add_layer(
+                        Dialog::new().content(
+                            LinearLayout::vertical()
+                                .child(TextView::new(
+                                    "Uh, oh. Seems like the server is down\nor other player left.",
+                                ))
+                                .child(
+                                    LinearLayout::horizontal()
+                                        .child(Button::new("Oh.", |s| s.quit())),
+                                ),
+                        ),
+                    );
                 }
             }
         }
@@ -124,7 +163,7 @@ impl Ui {
     }
 }
 
-/// show help.
+/// show help dialog.
 fn show_help(siv: &mut Cursive) {
     siv.add_layer(Dialog::info(
         "

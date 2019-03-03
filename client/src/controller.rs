@@ -7,9 +7,11 @@ use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpStream;
 use std::sync::mpsc;
+use std::thread;
 
 pub struct Controller {
     pub rx: mpsc::Receiver<ControllerMessage>,
+    pub tx: mpsc::Sender<ControllerMessage>,
     pub socket: TcpStream,
     pub ui: Ui,
 }
@@ -17,6 +19,10 @@ pub struct Controller {
 pub enum ControllerMessage {
     /// Used to send updated data to server, if move was performed.
     MovePerformed(Move),
+    /// Used to send updated gamestate from server to ui.
+    UpdateState(GameState),
+    /// Used to notify ui, that server is down.
+    ServerIsDown,
 }
 
 impl Controller {
@@ -29,26 +35,23 @@ impl Controller {
         } else {
             Ok(Controller {
                 rx: rx,
+                tx: tx.clone(),
                 socket: stream.unwrap(),
                 ui: Ui::new(tx.clone()),
             })
         }
     }
-
+    /// Write json data to server.
     fn write_json_data(&mut self, data: &impl Serialize) {
         let mut buffer = serde_json::to_vec(data).expect("Serialization errror");
         buffer.push(b'\n');
 
         let _ = self.socket.write_all(&buffer);
     }
-
-    fn get_new_state(&mut self) -> GameState {
-        let mut buffer = String::new();
-        let mut reader = BufReader::new(&self.socket);
-        reader.read_line(&mut buffer).unwrap();
-        let state: GameState = serde_json::from_str(&buffer).unwrap();
-        state
-    }
+    // /// Get new state from server
+    // fn get_new_state(&mut self) -> GameState {
+    //     state
+    // }
 
     /// Run the controller
     pub fn run(&mut self) {
@@ -63,18 +66,53 @@ impl Controller {
             )))
             .unwrap();
         buffer.clear();
+        let controller_tx = self.tx.clone();
+        let socket = self.socket.try_clone();
+        if socket.is_err() {
+            panic!("Can't clone server socket.")
+        }
+        let socket = socket.unwrap();
+        let _client = thread::spawn(move || {
+            let mut buffer = String::new();
+            let mut reader = BufReader::new(socket);
+            loop {
+                let line_res = reader.read_line(&mut buffer);
+                if line_res.is_ok() {
+                    if buffer.is_empty() {
+                        controller_tx.send(ControllerMessage::ServerIsDown).unwrap();
+                        break;
+                    } else {
+                        let state: GameState = serde_json::from_str(&buffer).unwrap();
+                        controller_tx
+                            .send(ControllerMessage::UpdateState(state))
+                            .unwrap();
+                    }
+                } else {
+                    controller_tx.send(ControllerMessage::ServerIsDown).unwrap();
+                    break;
+                }
+                buffer.clear();
+            }
+        });
         while self.ui.step() {
             while let Some(message) = self.rx.try_iter().next() {
                 // Handle messages arriving from the UI.
                 match message {
                     ControllerMessage::MovePerformed(new_state) => {
                         self.write_json_data(&new_state);
-                        let server_state = self.get_new_state();
+                        // let server_state = self.get_new_state();
+                    }
+                    ControllerMessage::UpdateState(server_state) => {
                         self.ui
                             .ui_tx
                             .send(UiMessage::UpdateState(server_state))
                             .expect("Can't update board");
                     }
+                    ControllerMessage::ServerIsDown => self
+                        .ui
+                        .ui_tx
+                        .send(UiMessage::ServerIsDown)
+                        .expect("Can't update server state."),
                 };
             }
         }
