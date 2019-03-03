@@ -84,8 +84,11 @@ impl Controller {
                     } else {
                         let state: GameState = serde_json::from_str(&buffer).unwrap();
                         controller_tx
-                            .send(ControllerMessage::UpdateState(state))
+                            .send(ControllerMessage::UpdateState(state.clone()))
                             .unwrap();
+                        if state.finished {
+                            break;
+                        }
                     }
                 } else {
                     controller_tx.send(ControllerMessage::ServerIsDown).unwrap();
