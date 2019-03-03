@@ -1,5 +1,5 @@
-use crate::types::*;
 use crate::controller::ControllerMessage;
+use crate::types::*;
 use cursive::event::Key;
 use cursive::view::*;
 use cursive::views::*;
@@ -15,7 +15,7 @@ pub struct Ui {
 
 pub enum UiMessage {
     UpdateProfile(Option<Player>),
-    UpdateBoard(GameState),
+    UpdateState(GameState),
 }
 
 impl Ui {
@@ -32,6 +32,7 @@ impl Ui {
 
         // Create a view tree with a TextArea for input, and a
         // TextView for output.
+        ui.cursive.set_fps(30);
         ui.cursive.add_global_callback(Key::Esc, move |c| c.quit());
         ui.cursive.add_global_callback('h', move |c| show_help(c));
         let gamestate = BoardView::new(controller_tx.clone());
@@ -86,14 +87,32 @@ impl Ui {
                         view.set_content(format!("Your color: {}", profile_type))
                     });
                 }
-                UiMessage::UpdateBoard(new_state) => {
+                UiMessage::UpdateState(new_state) => {
                     self.cursive.call_on_id("board", |view: &mut BoardView| {
                         view.gamestate = new_state.clone();
                     });
                     self.cursive
                         .call_on_id("current_turn", |view: &mut TextView| {
-                            view.set_content(format!("{:?}", new_state.clone().current_player))
+                            view.set_content(format!(
+                                "Current turn: {:?}",
+                                new_state.clone().current_player
+                            ))
                         });
+                    self.cursive.call_on_id("history", |view: &mut ListView| {
+                        view.clear();
+                        let letters = vec!["a", "b", "c", "d", "e", "f", "g", "h"];
+                        for horse_move in new_state.clone().move_history {
+                            let text = format!(
+                                "{:?} {}{} -> {}{}",
+                                horse_move.player,
+                                letters[horse_move.from.x as usize],
+                                horse_move.from.y,
+                                letters[horse_move.to.x as usize],
+                                horse_move.from.x
+                            );
+                            view.add_child(" ", TextView::new(text));
+                        }
+                    });
                 }
             }
         }

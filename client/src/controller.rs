@@ -2,10 +2,10 @@ use crate::types::*;
 use crate::ui::Ui;
 use crate::ui::UiMessage;
 use serde::Serialize;
-use std::io::BufReader;
 use std::io::BufRead;
-use std::net::TcpStream;
+use std::io::BufReader;
 use std::io::Write;
+use std::net::TcpStream;
 use std::sync::mpsc;
 
 pub struct Controller {
@@ -72,7 +72,7 @@ impl Controller {
                         let server_state = self.get_new_state();
                         self.ui
                             .ui_tx
-                            .send(UiMessage::UpdateBoard(server_state))
+                            .send(UiMessage::UpdateState(server_state))
                             .expect("Can't update board");
                     }
                 };

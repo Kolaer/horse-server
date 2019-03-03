@@ -72,8 +72,28 @@ impl BoardView {
     /// Add all available positions to move from focused into
     /// BoardView.available.
     fn update_available(&mut self) {
+        fn check_cell(focused: Vec2, x: i8, y: i8, available: &mut Vec<Vec2>) {
+            let x = focused.x as i8 + x;
+            let y = focused.y as i8 + y;
+            if x > 7 || x < 0 {
+                return;
+            }
+            if y > 7 || y < 0 {
+                return;
+            }
+            // return Some(Vec2::from((x as usize, y as usize)));
+            available.push(Vec2::from((x as usize, y as usize)));
+        }
         if let Some(cell) = self.focused {
-            self.available.push(cell);
+            check_cell(cell.clone(), 2, 1, &mut self.available);
+            check_cell(cell.clone(), 2, -1, &mut self.available);
+            check_cell(cell.clone(), -2, 1, &mut self.available);
+            check_cell(cell.clone(), -2, -1, &mut self.available);
+            check_cell(cell.clone(), 1, 2, &mut self.available);
+            check_cell(cell.clone(), -1, 2, &mut self.available);
+            check_cell(cell.clone(), 1, -2, &mut self.available);
+            check_cell(cell.clone(), -1, -2, &mut self.available);
+            // self.available.push(cell);
         }
     }
 }
@@ -199,7 +219,7 @@ impl cursive::view::View for BoardView {
                                 Player::White => Piece::White,
                                 Player::Black => Piece::Black,
                             };
-                            let available = self.available.iter().any(|el| el == &focused);
+                            let available = self.available.iter().any(|el| el == &pos);
                             if available {
                                 self.focused = None;
                                 self.gamestate.board[focused.y][focused.x] = Piece::Empty;
