@@ -63,8 +63,8 @@ impl GameState {
             return;
         }
 
-        self.board[from_x][from_y] = Piece::Empty;
-        self.board[to_x][to_y] = from_piece;
+        self.board[from_y][from_x] = Piece::Empty;
+        self.board[to_y][to_x] = from_piece;
 
         self.current_player = match self.current_player {
             Player::White => Player::Black,
