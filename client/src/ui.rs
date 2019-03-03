@@ -117,14 +117,14 @@ impl Ui {
                     });
                     if new_state.finished {
                         let mut message = "Opponent was disconnected.";
-                        let mut button_msg = "Ok.";
+                        let mut button_msg = "Ok";
                         if let Some(winner) = new_state.winner {
                             if winner == self.player {
                                 message = "You won!";
                                 button_msg = "Yay!";
                             } else {
                                 message = "You lose.";
-                                button_msg = "Ah.";
+                                button_msg = "Ah";
                             }
                         }
                         self.cursive.add_layer(

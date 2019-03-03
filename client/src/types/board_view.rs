@@ -188,6 +188,9 @@ impl cursive::view::View for BoardView {
                         _ => false,
                     };
                     if test_color {
+                        if self.focused != Some(cell) {
+                            self.available.clear();
+                        }
                         self.focused = Some(cell);
                         self.update_available();
                         return EventResult::Consumed(None);

@@ -16,8 +16,8 @@ impl Default for GameState {
         use crate::types::Piece::*;
 
         let board = [
-            [Empty, Black, Empty, Black, Empty, Black, Empty, Black],
             [Black, Empty, Black, Empty, Black, Empty, Black, Empty],
+            [Empty, Black, Empty, Black, Empty, Black, Empty, Black],
             [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
             [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
             [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty],
