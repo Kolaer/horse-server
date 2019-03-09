@@ -11,7 +11,7 @@ pub struct Ui {
     pub ui_rx: mpsc::Receiver<UiMessage>,
     pub ui_tx: mpsc::Sender<UiMessage>,
     pub controller_tx: mpsc::Sender<ControllerMessage>,
-    pub player: Player,
+    pub player: Option<Player>,
 }
 
 pub enum UiMessage {
@@ -30,7 +30,7 @@ impl Ui {
             ui_tx: ui_tx,
             ui_rx: ui_rx,
             controller_tx: controller_tx.clone(),
-            player: Player::White,
+            player: None,
         };
 
         ui.cursive.set_fps(30);
@@ -80,7 +80,7 @@ impl Ui {
                             Player::White => profile_type = "White",
                             Player::Black => profile_type = "Black",
                         }
-                        self.player = player.clone();
+                        self.player = Some(player.clone());
                     }
                     self.cursive.call_on_id("board", |view: &mut BoardView| {
                         view.player = profile.clone()
@@ -116,15 +116,17 @@ impl Ui {
                         }
                     });
                     if new_state.finished {
-                        let mut message = "Opponent was disconnected.";
-                        let mut button_msg = "Ok";
+                        let mut message = String::from("Opponent was disconnected.");
+                        let mut button_msg = String::from("Ok");
                         if let Some(winner) = new_state.winner {
-                            if winner == self.player {
-                                message = "You won!";
-                                button_msg = "Yay!";
+                            if None == self.player {
+                                message = format!("{:?} won.", winner);
+                            } else if Some(winner) == self.player {
+                                message = String::from("You won!");
+                                button_msg = String::from("Yay!");
                             } else {
-                                message = "You lose.";
-                                button_msg = "Ah";
+                                message = String::from("You lose.");
+                                button_msg = String::from("Ah");
                             }
                         }
                         self.cursive.add_layer(

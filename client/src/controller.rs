@@ -58,13 +58,10 @@ impl Controller {
         let mut buffer = String::new();
         let mut reader = BufReader::new(&self.socket);
         reader.read_line(&mut buffer).unwrap();
-        let current_player: Player = serde_json::from_str(&buffer).unwrap();
+        let current_player: Option<Player> = serde_json::from_str(&buffer).unwrap();
         self.ui
             .ui_tx
-            .send(UiMessage::UpdateProfile(serde::export::Some(
-                current_player,
-            )))
-            .unwrap();
+            .send(UiMessage::UpdateProfile(current_player)).unwrap();
         buffer.clear();
         let controller_tx = self.tx.clone();
         let socket = self.socket.try_clone();
